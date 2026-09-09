@@ -31,8 +31,8 @@ Any agent that speaks [Model Context Protocol](https://modelcontextprotocol.io):
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/abcucinalabs/newsletter-mcp.git
-cd newsletter-mcp
+git clone https://github.com/abcucinalabs/newsletter.git
+cd newsletter
 npm install
 ```
 

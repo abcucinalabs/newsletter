@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span>
               Powered by{" "}
               <a
-                href="https://github.com/abcucinalabs/newsletter-mcp"
+                href="https://github.com/abcucinalabs/newsletter"
                 className="hover:text-[#0d0d0d]/60 transition-colors underline underline-offset-2"
                 target="_blank"
               >
