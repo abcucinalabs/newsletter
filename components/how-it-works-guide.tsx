@@ -1,21 +1,125 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 type Actor = "you" | "agent" | "both"
+
+type ChatTurn =
+  | { role: "user"; text: string }
+  | { role: "agent"; text: string }
+  | { role: "tool"; tool: string; args?: string }
 
 interface Stage {
   id: string
   label: string
   short: string
   headline: string
-  body: string
   actor: Actor
-  tools: string[]
-  prompt?: string
-  where?: string
-  code?: { lang: string; lines: string[] }
+  path: string
+  ui: (color: string) => ReactNode
+  chat: ChatTurn[]
 }
+
+// ── Shared mock chrome ──────────────────────────────────────────────────────
+
+function AppFrame({ path, children }: { path: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-black/[0.08] bg-white overflow-hidden h-full flex flex-col">
+      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-black/[0.06] bg-[#fafafa]">
+        <span className="w-2 h-2 rounded-full bg-black/10" />
+        <span className="w-2 h-2 rounded-full bg-black/10" />
+        <span className="w-2 h-2 rounded-full bg-black/10" />
+        <span className="ml-2 text-[10px] text-[#0d0d0d]/35 font-mono truncate">{path}</span>
+      </div>
+      <div className="p-4 flex-1">{children}</div>
+    </div>
+  )
+}
+
+function ChatPanel({ turns, color }: { turns: ChatTurn[]; color: string }) {
+  return (
+    <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] h-full flex flex-col">
+      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-black/[0.06] bg-white">
+        <span
+          className="w-4 h-4 rounded-full flex-shrink-0"
+          style={{ backgroundColor: color }}
+        />
+        <span className="text-[10px] text-[#0d0d0d]/35 font-mono">chat with your agent</span>
+      </div>
+      <div className="p-4 flex-1 flex flex-col gap-2.5">
+        {turns.map((t, i) => {
+          if (t.role === "tool") {
+            return (
+              <div key={i} className="flex justify-start">
+                <code
+                  className="font-mono text-[10.5px] rounded-lg px-2.5 py-1.5 border"
+                  style={{ backgroundColor: `${color}0d`, borderColor: `${color}25`, color }}
+                >
+                  → {t.tool}
+                  {t.args ? <span className="opacity-60">({t.args})</span> : null}
+                </code>
+              </div>
+            )
+          }
+          const isUser = t.role === "user"
+          return (
+            <div key={i} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+              <div
+                className="max-w-[85%] text-[12.5px] leading-relaxed px-3.5 py-2.5 rounded-2xl"
+                style={
+                  isUser
+                    ? { backgroundColor: "#0d0d0d", color: "#fff", borderBottomRightRadius: 4 }
+                    : {
+                        backgroundColor: "#fff",
+                        color: "#0d0d0d",
+                        border: "1px solid rgba(0,0,0,0.07)",
+                        borderBottomLeftRadius: 4,
+                      }
+                }
+              >
+                {t.text}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Tiny UI atoms reused across mocks ────────────────────────────────────────
+
+function MockLabel({ children }: { children: ReactNode }) {
+  return <p className="text-[9px] font-semibold tracking-wide uppercase text-[#0d0d0d]/30 mb-1">{children}</p>
+}
+
+function MockField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mb-2">
+      <MockLabel>{label}</MockLabel>
+      <div className="text-[11.5px] bg-[#f5f5f5] border border-black/[0.06] rounded-lg px-2.5 py-1.5 text-[#0d0d0d]/80 truncate">
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function MockButton({ children, color, primary = true }: { children: ReactNode; color: string; primary?: boolean }) {
+  return (
+    <span
+      className="inline-block text-[11px] font-medium rounded-lg px-3 py-1.5"
+      style={
+        primary
+          ? { backgroundColor: color, color: "#fff" }
+          : { border: "1px solid rgba(0,0,0,0.1)", color: "#0d0d0d" }
+      }
+    >
+      {children}
+    </span>
+  )
+}
+
+// ── Stages ────────────────────────────────────────────────────────────────
 
 const STAGES: Stage[] = [
   {
@@ -23,84 +127,243 @@ const STAGES: Stage[] = [
     label: "Collect",
     short: "Content accrues all week",
     headline: "Content lands before anyone writes an issue",
-    body:
-      "Nothing here starts with a blank editor. News items attach to the week's draft, while longer reads and project notes go into a saved_content table that the next issue picks up on its own — anything added in the last 7 days is pulled in automatically.",
     actor: "both",
-    tools: ["add_news_item"],
-    prompt: "Add the three biggest AI stories from this week to the current issue, with a one-line summary each.",
-    where: "Manage → Newsletters → an issue → News tab",
+    path: "Manage → Newsletters → this issue → News",
+    ui: (color) => (
+      <AppFrame path="Manage → Newsletters → this issue → News">
+        <div className="flex items-center justify-between mb-3">
+          <span
+            className="w-5 h-5 rounded-md text-[10px] font-bold flex items-center justify-center text-white"
+            style={{ backgroundColor: color }}
+          >
+            1
+          </span>
+          <span className="text-[10px] text-red-400/70">Remove</span>
+        </div>
+        <MockField label="Title" value="Anthropic ships a new model" />
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <MockField label="Source" value="The Verge" />
+          <MockField label="URL" value="https://…" />
+        </div>
+        <MockField label="Summary" value="What it means for people building products" />
+        <div className="mt-3 border border-dashed border-black/10 rounded-lg py-2 text-center text-[10px] text-[#0d0d0d]/35">
+          + Add news item
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "Add the three biggest AI stories from this week to the current issue, with a one-line summary each." },
+      { role: "tool", tool: "add_news_item", args: "Anthropic ships…" },
+      { role: "tool", tool: "add_news_item", args: "OpenAI announces…" },
+      { role: "tool", tool: "add_news_item", args: "Google releases…" },
+      { role: "agent", text: "Added 3 items to the issue dated Mar 9." },
+    ],
   },
   {
     id: "draft",
     label: "Draft",
     short: "One issue per week",
     headline: "A draft exists for every week, created on demand",
-    body:
-      "Issues are keyed by the Monday of their week, and creation is idempotent — asking twice returns the same draft instead of making a duplicate. An agent can just ask for 'the current issue' and get one whether or not it existed a second ago.",
     actor: "both",
-    tools: ["create_newsletter", "get_current_newsletter", "list_newsletters"],
-    prompt: "Start next Monday's issue.",
-    where: "Manage → Newsletters → New issue",
+    path: "Manage → Newsletters → New issue",
+    ui: (color) => (
+      <AppFrame path="Manage → Newsletters → New issue">
+        <MockLabel>Week of (Monday)</MockLabel>
+        <div className="text-[11.5px] bg-[#f5f5f5] border border-black/[0.06] rounded-lg px-2.5 py-1.5 text-[#0d0d0d]/80 mb-4">
+          March 9, 2026
+        </div>
+        <MockButton color={color}>Create draft</MockButton>
+        <div className="mt-5 pt-4 border-t border-black/[0.06]">
+          <MockLabel>Existing issues</MockLabel>
+          <div className="flex items-center justify-between text-[11px] text-[#0d0d0d]/45 py-1">
+            <span>Week of March 2, 2026</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-black/[0.05] text-[9px]">sent</span>
+          </div>
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "Start next Monday's issue." },
+      { role: "tool", tool: "create_newsletter", args: "weekStart: 2026-03-09" },
+      { role: "agent", text: "Created the draft for the week of March 9. It's empty and ready for content." },
+    ],
   },
   {
     id: "write",
     label: "Write",
     short: "By hand or by model",
     headline: "The intro writes itself from the week's material",
-    body:
-      "Gemini reads everything already collected — news items, saved reading, project notes — and returns a title and body that ties them together, rather than inventing from nothing. You can accept it, edit it, or ignore it and write your own.",
     actor: "both",
-    tools: ["generate_intro", "update_newsletter"],
-    prompt: "Write the intro for this week and connect the stories to a single theme.",
-    where: "Manage → Newsletters → an issue → Editorial tab",
+    path: "Manage → Newsletters → this issue → Editorial",
+    ui: (color) => (
+      <AppFrame path="Manage → Newsletters → this issue → Editorial">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[11px] font-semibold">Editorial intro</span>
+          <MockButton color={color}>✨ Generate with AI</MockButton>
+        </div>
+        <MockField label="Title" value="Three ways teams shipped faster this week" />
+        <MockLabel>Body</MockLabel>
+        <div className="text-[11px] bg-[#f5f5f5] border border-black/[0.06] rounded-lg px-2.5 py-2 text-[#0d0d0d]/70 leading-relaxed">
+          This week's releases share a theme: less setup, more judgment calls handed to the model itself…
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "Write the intro for this week and connect the stories to a single theme." },
+      { role: "tool", tool: "generate_intro" },
+      {
+        role: "agent",
+        text: "Drafted it — titled \"Three ways teams shipped faster this week.\" It ties this week's three items to a single thread: less setup, more judgment handed to the model. Want any edits?",
+      },
+    ],
   },
   {
     id: "preview",
     label: "Preview",
     short: "Exactly what ships",
     headline: "Preview renders the real email, not an approximation",
-    body:
-      "The preview, the test send, the broadcast, and the public archive page all run through one renderer. What you see in preview is byte-for-byte what lands in an inbox.",
     actor: "both",
-    tools: ["preview_newsletter"],
-    prompt: "Show me what this week's issue looks like.",
-    where: "Manage → Newsletters → an issue → Preview",
+    path: "Manage → Newsletters → this issue → Preview",
+    ui: (color) => (
+      <AppFrame path="Manage → Newsletters → this issue → Preview">
+        <div className="rounded-lg overflow-hidden border border-black/[0.06]">
+          <div className="px-3 py-3" style={{ backgroundColor: "#0d0d0d" }}>
+            <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color }}>Newsletter</p>
+            <p className="text-white text-[12px] font-semibold mt-1">Week of March 9, 2026</p>
+          </div>
+          <div className="p-3">
+            <div
+              className="rounded-md px-2.5 py-2 mb-2 border-l-2"
+              style={{ backgroundColor: `${color}0a`, borderColor: color }}
+            >
+              <p className="text-[9px] font-bold uppercase tracking-wide mb-1" style={{ color }}>From the Editor</p>
+              <p className="text-[10.5px] text-[#0d0d0d]/60 leading-snug">
+                Three ways teams shipped faster this week…
+              </p>
+            </div>
+            <p className="text-[9px] font-bold uppercase tracking-wide mb-1" style={{ color }}>News</p>
+            <p className="text-[10.5px] text-[#0d0d0d]/60">1. Anthropic ships a new model</p>
+          </div>
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "Show me what this week's issue looks like." },
+      { role: "tool", tool: "preview_newsletter" },
+      { role: "agent", text: "Here's the rendered issue — this is exactly what a subscriber will open." },
+    ],
   },
   {
     id: "send",
     label: "Send",
     short: "Test, then broadcast",
     headline: "A proof to yourself, then the list",
-    body:
-      "Passing a test address sends a single copy so you can check it in a real client. Omitting it broadcasts through Resend to everyone subscribed to the weekly topic, marks the issue sent, and records the broadcast id for stats later.",
     actor: "both",
-    tools: ["send_newsletter"],
-    prompt: "Send me a test first. If I say it looks good, broadcast it to everyone.",
-    where: "Manage → Newsletters → an issue → Send tab",
+    path: "Manage → Newsletters → this issue → Send",
+    ui: (color) => (
+      <AppFrame path="Manage → Newsletters → this issue → Send">
+        <MockLabel>Send test email</MockLabel>
+        <div className="flex gap-1.5 mb-4">
+          <div className="flex-1 text-[11px] bg-[#f5f5f5] border border-black/[0.06] rounded-lg px-2 py-1.5 text-[#0d0d0d]/60">
+            you@example.com
+          </div>
+          <MockButton color={color}>Send test</MockButton>
+        </div>
+        <div className="pt-3 border-t border-black/[0.06]">
+          <MockLabel>Broadcast to subscribers</MockLabel>
+          <p className="text-[10px] text-[#0d0d0d]/40 mb-2">This cannot be undone.</p>
+          <MockButton color={color}>🚀 Send to all subscribers</MockButton>
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "Send me a test first. If I say it looks good, broadcast it to everyone." },
+      { role: "tool", tool: "send_newsletter", args: "testEmail" },
+      { role: "agent", text: "Test sent to you@example.com. Let me know when to broadcast." },
+      { role: "user", text: "Looks good, send it." },
+      { role: "tool", tool: "send_newsletter" },
+      { role: "agent", text: "Broadcast sent to 1,204 subscribers." },
+    ],
   },
   {
     id: "measure",
     label: "Measure",
     short: "Opens, clicks, bounces",
     headline: "Delivery events flow back in",
-    body:
-      "Point a Resend webhook at the app and every open, click, bounce, and complaint is logged to email_events. Agents can query it directly, so 'how did last week do?' is a question your assistant can actually answer.",
     actor: "both",
-    tools: ["get_email_stats"],
-    prompt: "How did last week's issue perform compared to the one before?",
-    where: "Resend webhook → /api/resend/webhook",
+    path: "Resend webhook → email_events",
+    ui: (color) => (
+      <AppFrame path="Manage → Dashboard">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            ["Opens", "612"],
+            ["Clicks", "148"],
+            ["Bounces", "3"],
+          ].map(([label, val]) => (
+            <div key={label} className="rounded-lg border border-black/[0.06] px-2 py-2.5 text-center">
+              <p className="text-[15px] font-semibold">{val}</p>
+              <p className="text-[9px] text-[#0d0d0d]/35 mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-black/[0.06] space-y-1">
+          <p className="text-[10px] text-[#0d0d0d]/40 flex justify-between">
+            <span>open · a.k@example.com</span>
+            <span style={{ color }}>2m ago</span>
+          </p>
+          <p className="text-[10px] text-[#0d0d0d]/40 flex justify-between">
+            <span>click · j.d@example.com</span>
+            <span style={{ color }}>5m ago</span>
+          </p>
+        </div>
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "How did last week's issue perform compared to the one before?" },
+      { role: "tool", tool: "get_email_stats", args: "broadcastId: prev" },
+      { role: "tool", tool: "get_email_stats", args: "broadcastId: last" },
+      { role: "agent", text: "612 opens and 148 clicks last week, up from 540 opens and 121 clicks the week before — opens grew 13%." },
+    ],
   },
   {
     id: "audience",
     label: "Audience",
     short: "Subscribers and topics",
     headline: "Two topics, one contact record",
-    body:
-      "A subscriber is created in Resend, opted into the topics they chose, and mirrored into Supabase so you can query the list without an API call. Preferences are per-topic, so someone can drop the daily and keep the weekly.",
     actor: "both",
-    tools: ["subscribe_user", "unsubscribe_user", "list_subscribers", "get_subscriber"],
-    prompt: "How many active subscribers do we have, and how many joined this month?",
-    where: "Manage → Subscribers",
+    path: "Manage → Subscribers",
+    ui: (color) => (
+      <AppFrame path="Manage → Subscribers">
+        <div className="flex text-[9px] font-semibold uppercase tracking-wide text-[#0d0d0d]/30 pb-1.5 border-b border-black/[0.06] mb-1.5">
+          <span className="flex-1">Email</span>
+          <span className="w-16">Status</span>
+        </div>
+        {[
+          ["a.k@example.com", "active"],
+          ["j.d@example.com", "active"],
+          ["m.r@example.com", "unsubscribed"],
+        ].map(([email, status]) => (
+          <div key={email} className="flex items-center py-1 text-[10.5px]">
+            <span className="flex-1 font-mono text-[#0d0d0d]/70 truncate">{email}</span>
+            <span
+              className="w-16 text-[9px] px-1.5 py-0.5 rounded-full text-center"
+              style={
+                status === "active"
+                  ? { backgroundColor: `${color}14`, color }
+                  : { backgroundColor: "rgba(0,0,0,0.05)", color: "rgba(13,13,13,0.4)" }
+              }
+            >
+              {status}
+            </span>
+          </div>
+        ))}
+      </AppFrame>
+    ),
+    chat: [
+      { role: "user", text: "How many active subscribers do we have, and how many joined this month?" },
+      { role: "tool", tool: "list_subscribers", args: "status: active" },
+      { role: "agent", text: "1,204 active subscribers. 86 of them joined this month." },
+    ],
   },
 ]
 
@@ -259,8 +522,8 @@ export default function HowItWorksGuide({ color }: { color: string }) {
           })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-black/[0.06] p-7 mt-3">
-          <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+        <div className="bg-white rounded-2xl border border-black/[0.06] p-6 sm:p-7 mt-3">
+          <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
             <h3 className="text-xl font-semibold leading-snug flex-1 min-w-[260px]">{stage.headline}</h3>
             <span
               className="text-[11px] font-medium px-2.5 py-1 rounded-full flex-shrink-0"
@@ -270,46 +533,19 @@ export default function HowItWorksGuide({ color }: { color: string }) {
             </span>
           </div>
 
-          <p className="text-[#0d0d0d]/60 leading-relaxed mb-6">{stage.body}</p>
-
-          {stage.prompt && (
-            <div className="mb-5">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
               <p className="text-[11px] font-semibold tracking-wider uppercase text-[#0d0d0d]/30 mb-2">
-                Say this to your agent
+                In the UI
               </p>
-              <div
-                className="rounded-xl px-4 py-3 text-sm leading-relaxed border"
-                style={{ backgroundColor: `${color}08`, borderColor: `${color}20` }}
-              >
-                &ldquo;{stage.prompt}&rdquo;
-              </div>
+              {stage.ui(color)}
             </div>
-          )}
-
-          <div className="flex flex-wrap items-start gap-x-8 gap-y-4 pt-5 border-t border-black/[0.06]">
-            <div className="min-w-[200px]">
+            <div>
               <p className="text-[11px] font-semibold tracking-wider uppercase text-[#0d0d0d]/30 mb-2">
-                MCP tools
+                In a chat with your agent
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {stage.tools.map((t) => (
-                  <code
-                    key={t}
-                    className="font-mono text-[11px] rounded-lg px-2 py-1 border border-black/[0.07] bg-black/[0.02] text-[#0d0d0d]/60"
-                  >
-                    {t}
-                  </code>
-                ))}
-              </div>
+              <ChatPanel turns={stage.chat} color={color} />
             </div>
-            {stage.where && (
-              <div className="min-w-[200px]">
-                <p className="text-[11px] font-semibold tracking-wider uppercase text-[#0d0d0d]/30 mb-2">
-                  Or do it yourself
-                </p>
-                <p className="text-xs text-[#0d0d0d]/50">{stage.where}</p>
-              </div>
-            )}
           </div>
         </div>
       </section>
