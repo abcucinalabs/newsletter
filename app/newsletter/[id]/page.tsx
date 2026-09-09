@@ -1,21 +1,14 @@
 export const dynamic = "force-dynamic"
 
 import { getSupabase } from "@/lib/supabase"
-import { buildNewsletterContext, renderWeeklyNewsletter } from "@/lib/renderer"
+import { renderIssueHtml } from "@/lib/newsletter-content"
 import { notFound } from "next/navigation"
 
 async function loadIssue(id: string) {
   try {
     const supabase = getSupabase()
     const { data: nl } = await supabase.from("weekly_newsletters").select("*").eq("id", id).maybeSingle()
-    if (!nl) return null
-
-    const [{ data: autoReading }, { data: autoCooking }, { data: selected }] = await Promise.all([
-      supabase.from("saved_content").select("*").eq("type", "reading").order("created_at", { ascending: false }).limit(10),
-      supabase.from("saved_content").select("*").eq("type", "cooking").order("created_at", { ascending: false }).limit(5),
-      nl.recipe_ids?.length ? supabase.from("saved_content").select("*").in("id", nl.recipe_ids) : Promise.resolve({ data: [] }),
-    ])
-    return { nl, autoReading, autoCooking, selected }
+    return nl ?? null
   } catch {
     return null
   }
@@ -23,15 +16,11 @@ async function loadIssue(id: string) {
 
 export default async function NewsletterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const loaded = await loadIssue(id)
-  if (!loaded) notFound()
-  const { nl, autoReading, autoCooking, selected } = loaded
+  const nl = await loadIssue(id)
+  if (!nl) notFound()
 
-  const reading = (selected?.length ? selected : autoReading) ?? []
-  const cooking = (Array.isArray(nl.cooking_items) && nl.cooking_items.length ? nl.cooking_items as any[] : autoCooking) ?? []
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ""
-  const context = buildNewsletterContext({ weekStart: new Date(nl.week_start), chefsTableTitle: nl.chefs_table_title, chefsTableBody: nl.chefs_table_body, newsItems: nl.news_items ?? [] }, reading, cooking, baseUrl)
-  const html = renderWeeklyNewsletter(context)
+  const baseUrl = process.env.BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || ""
+  const html = await renderIssueHtml(nl, baseUrl)
 
   // Render the email HTML directly in an iframe-like container
   return (

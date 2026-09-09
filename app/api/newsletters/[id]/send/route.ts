@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
 import { getResend, resendRetry, getOrCreateTopicId, TOPIC_NAMES } from "@/lib/resend"
-import { renderWeeklyNewsletter, buildNewsletterContext } from "@/lib/renderer"
+import { renderIssueHtml } from "@/lib/newsletter-content"
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -22,11 +22,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }
 
     const baseUrl = process.env.BASE_URL || "http://localhost:3001"
-    const ctx = buildNewsletterContext(
-      { weekStart: new Date(nl.week_start), chefsTableTitle: nl.chefs_table_title, chefsTableBody: nl.chefs_table_body, newsItems: nl.news_items },
-      [], [], baseUrl
-    )
-    const html = renderWeeklyNewsletter(ctx)
+    const html = await renderIssueHtml(nl, baseUrl)
 
     const newsletterName = process.env.NEWSLETTER_NAME || "Newsletter"
     const fromName = process.env.RESEND_FROM_NAME || newsletterName

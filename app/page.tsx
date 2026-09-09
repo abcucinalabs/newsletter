@@ -100,10 +100,27 @@ export default async function HomePage() {
           A newsletter your AI agents can run
         </h1>
 
-        <p className="text-lg text-[#0d0d0d]/60 leading-relaxed max-w-2xl mb-4">
+        <p className="text-lg text-[#0d0d0d]/60 leading-relaxed max-w-2xl mb-5">
           newsletter-mcp is a self-hosted newsletter platform with an MCP server built in. Write, schedule,
           and send issues yourself — or hand the whole workflow to an agent.
         </p>
+
+        <div
+          className="rounded-2xl border p-5 mb-6 max-w-2xl"
+          style={{ borderColor: `${config.color}25`, backgroundColor: `${config.color}0a` }}
+        >
+          <p className="text-sm font-semibold mb-1.5" style={{ color: config.color }}>
+            Your content gets in from anywhere
+          </p>
+          <p className="text-sm text-[#0d0d0d]/60 leading-relaxed">
+            The content store is an ordinary database table, not a walled editor. Type items in the UI, hand
+            an agent a pile of links, or have a scraper, cron job, or another tool write rows directly —
+            anything added in the last seven days is pulled into the next issue automatically.{" "}
+            <a href="/how-it-works" className="font-medium hover:underline" style={{ color: config.color }}>
+              See how it works →
+            </a>
+          </p>
+        </div>
 
         <div className="flex flex-wrap gap-1.5">
           {AGENTS.map((a) => (

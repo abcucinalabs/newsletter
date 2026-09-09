@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { getResend, resendRetry } from "../../lib/resend.js"
 import { getSupabase } from "../../lib/supabase.js"
-import { renderWeeklyNewsletter, buildNewsletterContext } from "../../lib/renderer.js"
+import { renderIssueHtml } from "../../lib/newsletter-content.js"
 import { getNewsletter, updateNewsletter } from "./newsletters.js"
 
 export async function generateIntro(input: { newsletterId: string; customPrompt?: string }) {
@@ -47,20 +47,9 @@ export async function generateIntro(input: { newsletterId: string; customPrompt?
 }
 
 export async function previewNewsletter(newsletterId: string, baseUrl?: string) {
-  const supabase = getSupabase()
   const newsletter = await getNewsletter(newsletterId)
   if (!newsletter) throw new Error(`Newsletter not found: ${newsletterId}`)
-
-  const [{ data: autoReading }, { data: autoCooking }, { data: selected }] = await Promise.all([
-    supabase.from("saved_content").select("*").eq("type", "reading").order("created_at", { ascending: false }).limit(10),
-    supabase.from("saved_content").select("*").eq("type", "cooking").order("created_at", { ascending: false }).limit(5),
-    newsletter.recipe_ids?.length ? supabase.from("saved_content").select("*").in("id", newsletter.recipe_ids) : Promise.resolve({ data: [] }),
-  ])
-
-  const reading = (selected?.length ? selected : autoReading) ?? []
-  const cooking = (Array.isArray(newsletter.cooking_items) && newsletter.cooking_items.length ? newsletter.cooking_items as any[] : autoCooking) ?? []
-  const context = buildNewsletterContext({ weekStart: new Date(newsletter.week_start), chefsTableTitle: newsletter.chefs_table_title, chefsTableBody: newsletter.chefs_table_body, newsItems: newsletter.news_items ?? [] }, reading, cooking, baseUrl)
-  return { html: renderWeeklyNewsletter(context), context }
+  return { html: await renderIssueHtml(newsletter, baseUrl) }
 }
 
 export async function sendNewsletter(input: { newsletterId: string; testEmail?: string; baseUrl?: string }) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase"
-import { renderWeeklyNewsletter, buildNewsletterContext } from "@/lib/renderer"
+import { renderIssueHtml } from "@/lib/newsletter-content"
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -16,18 +16,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (error || !nl) return NextResponse.json({ error: "Newsletter not found" }, { status: 404 })
 
     const baseUrl = process.env.BASE_URL || "http://localhost:3001"
-    const ctx = buildNewsletterContext(
-      {
-        weekStart: new Date(nl.week_start),
-        chefsTableTitle: nl.chefs_table_title,
-        chefsTableBody: nl.chefs_table_body,
-        newsItems: nl.news_items,
-      },
-      [], // reading items — not stored separately in this package
-      [],
-      baseUrl
-    )
-    const html = renderWeeklyNewsletter(ctx)
+    const html = await renderIssueHtml(nl, baseUrl)
     return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
